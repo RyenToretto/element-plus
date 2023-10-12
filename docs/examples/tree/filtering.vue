@@ -13,12 +13,10 @@
 
 <script lang="ts" setup>
 import { ref, watch } from 'vue'
-import type { ElTree } from 'element-plus'
+import { ElTree } from 'element-plus'
 
 interface Tree {
-  id: number
-  label: string
-  children?: Tree[]
+  [key: string]: any
 }
 
 const filterText = ref('')
@@ -35,7 +33,7 @@ watch(filterText, (val) => {
 
 const filterNode = (value: string, data: Tree) => {
   if (!value) return true
-  return data.label.indexOf(value) !== -1
+  return data.label.includes(value)
 }
 
 const data: Tree[] = [

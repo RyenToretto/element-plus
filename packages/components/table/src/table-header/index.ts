@@ -1,22 +1,22 @@
+// @ts-nocheck
 import {
   defineComponent,
   getCurrentInstance,
-  onMounted,
-  nextTick,
-  ref,
   h,
   inject,
+  nextTick,
+  onMounted,
+  ref,
 } from 'vue'
 import ElCheckbox from '@element-plus/components/checkbox'
 import { useNamespace } from '@element-plus/hooks'
 import FilterPanel from '../filter-panel.vue'
 import useLayoutObserver from '../layout-observer'
-import { hColgroup } from '../h-helper'
 import { TABLE_INJECTION_KEY } from '../tokens'
 import useEvent from './event-helper'
 import useStyle from './style.helper'
 import useUtils from './utils-helper'
-import type { ComponentInternalInstance, Ref, PropType } from 'vue'
+import type { ComponentInternalInstance, PropType, Ref } from 'vue'
 import type { DefaultRow, Sort } from '../table/defaults'
 import type { Store } from '../store'
 export interface TableHeader extends ComponentInternalInstance {
@@ -62,15 +62,14 @@ export default defineComponent({
     const instance = getCurrentInstance() as TableHeader
     const parent = inject(TABLE_INJECTION_KEY)
     const ns = useNamespace('table')
-    const storeData = parent?.store.states
     const filterPanels = ref({})
     const { onColumnsChange, onScrollableChange } = useLayoutObserver(parent!)
-    onMounted(() => {
-      nextTick(() => {
-        const { prop, order } = props.defaultSort
-        const init = true
-        parent?.store.commit('sort', { prop, order, init })
-      })
+    onMounted(async () => {
+      // Need double await, because updateColumns is executed after nextTick for now
+      await nextTick()
+      await nextTick()
+      const { prop, order } = props.defaultSort
+      parent?.store.commit('sort', { prop, order, init: true })
     })
     const {
       handleHeaderClick,
@@ -95,12 +94,10 @@ export default defineComponent({
       onColumnsChange,
       onScrollableChange,
     }
-    // eslint-disable-next-line
     instance.filterPanels = filterPanels
 
     return {
       ns,
-      columns: storeData.columns,
       filterPanels,
       onColumnsChange,
       onScrollableChange,
@@ -123,7 +120,6 @@ export default defineComponent({
   render() {
     const {
       ns,
-      columns,
       isGroup,
       columnRows,
       getHeaderCellStyle,
@@ -141,118 +137,103 @@ export default defineComponent({
     } = this
     let rowSpan = 1
     return h(
-      'table',
+      'thead',
       {
-        border: '0',
-        cellpadding: '0',
-        cellspacing: '0',
-        class: ns.e('header'),
+        class: { [ns.is('group')]: isGroup },
       },
-      [
-        hColgroup(columns),
+      columnRows.map((subColumns, rowIndex) =>
         h(
-          'thead',
+          'tr',
           {
-            class: { [ns.is('group')]: isGroup },
+            class: getHeaderRowClass(rowIndex),
+            key: rowIndex,
+            style: getHeaderRowStyle(rowIndex),
           },
-          columnRows.map((subColumns, rowIndex) =>
-            h(
-              'tr',
+          subColumns.map((column, cellIndex) => {
+            if (column.rowSpan > rowSpan) {
+              rowSpan = column.rowSpan
+            }
+            return h(
+              'th',
               {
-                class: getHeaderRowClass(rowIndex),
-                key: rowIndex,
-                style: getHeaderRowStyle(rowIndex),
+                class: getHeaderCellClass(
+                  rowIndex,
+                  cellIndex,
+                  subColumns,
+                  column
+                ),
+                colspan: column.colSpan,
+                key: `${column.id}-thead`,
+                rowspan: column.rowSpan,
+                style: getHeaderCellStyle(
+                  rowIndex,
+                  cellIndex,
+                  subColumns,
+                  column
+                ),
+                onClick: ($event) => handleHeaderClick($event, column),
+                onContextmenu: ($event) =>
+                  handleHeaderContextMenu($event, column),
+                onMousedown: ($event) => handleMouseDown($event, column),
+                onMousemove: ($event) => handleMouseMove($event, column),
+                onMouseout: handleMouseOut,
               },
-              subColumns.map((column, cellIndex) => {
-                if (column.rowSpan > rowSpan) {
-                  rowSpan = column.rowSpan
-                }
-                return h(
-                  'th',
+              [
+                h(
+                  'div',
                   {
-                    class: getHeaderCellClass(
-                      rowIndex,
-                      cellIndex,
-                      subColumns,
-                      column
-                    ),
-                    colspan: column.colSpan,
-                    key: `${column.id}-thead`,
-                    rowSpan: column.rowSpan,
-                    style: getHeaderCellStyle(
-                      rowIndex,
-                      cellIndex,
-                      subColumns,
-                      column
-                    ),
-                    onClick: ($event) => handleHeaderClick($event, column),
-                    onContextmenu: ($event) =>
-                      handleHeaderContextMenu($event, column),
-                    onMousedown: ($event) => handleMouseDown($event, column),
-                    onMousemove: ($event) => handleMouseMove($event, column),
-                    onMouseout: handleMouseOut,
+                    class: [
+                      'cell',
+                      column.filteredValue && column.filteredValue.length > 0
+                        ? 'highlight'
+                        : '',
+                    ],
                   },
                   [
-                    h(
-                      'div',
-                      {
-                        class: [
-                          'cell',
-                          column.filteredValue &&
-                          column.filteredValue.length > 0
-                            ? 'highlight'
-                            : '',
-                          column.labelClassName,
-                        ],
-                      },
-                      [
-                        column.renderHeader
-                          ? column.renderHeader({
-                              column,
-                              $index: cellIndex,
-                              store,
-                              _self: $parent,
-                            })
-                          : column.label,
-                        column.sortable &&
-                          h(
-                            'span',
-                            {
-                              onClick: ($event) =>
-                                handleSortClick($event, column),
-                              class: 'caret-wrapper',
-                            },
-                            [
-                              h('i', {
-                                onClick: ($event) =>
-                                  handleSortClick($event, column, 'ascending'),
-                                class: 'sort-caret ascending',
-                              }),
-                              h('i', {
-                                onClick: ($event) =>
-                                  handleSortClick($event, column, 'descending'),
-                                class: 'sort-caret descending',
-                              }),
-                            ]
-                          ),
-                        column.filterable &&
-                          h(FilterPanel, {
-                            store: $parent.store,
-                            placement: column.filterPlacement || 'bottom-start',
-                            column,
-                            upDataColumn: (key, value) => {
-                              column[key] = value
-                            },
+                    column.renderHeader
+                      ? column.renderHeader({
+                          column,
+                          $index: cellIndex,
+                          store,
+                          _self: $parent,
+                        })
+                      : column.label,
+                    column.sortable &&
+                      h(
+                        'span',
+                        {
+                          onClick: ($event) => handleSortClick($event, column),
+                          class: 'caret-wrapper',
+                        },
+                        [
+                          h('i', {
+                            onClick: ($event) =>
+                              handleSortClick($event, column, 'ascending'),
+                            class: 'sort-caret ascending',
                           }),
-                      ]
-                    ),
+                          h('i', {
+                            onClick: ($event) =>
+                              handleSortClick($event, column, 'descending'),
+                            class: 'sort-caret descending',
+                          }),
+                        ]
+                      ),
+                    column.filterable &&
+                      h(FilterPanel, {
+                        store,
+                        placement: column.filterPlacement || 'bottom-start',
+                        column,
+                        upDataColumn: (key, value) => {
+                          column[key] = value
+                        },
+                      }),
                   ]
-                )
-              })
+                ),
+              ]
             )
-          )
-        ),
-      ]
+          })
+        )
+      )
     )
   },
 })

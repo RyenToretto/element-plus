@@ -1,16 +1,14 @@
+// @ts-nocheck
 import {
   defineComponent,
   getCurrentInstance,
   h,
-  watch,
-  onUnmounted,
-  onUpdated,
   inject,
+  onUnmounted,
+  watch,
 } from 'vue'
-import { isClient } from '@vueuse/core'
-import { addClass, removeClass } from '@element-plus/utils/dom'
+import { addClass, isClient, rAF, removeClass } from '@element-plus/utils'
 import { useNamespace } from '@element-plus/hooks'
-import { hColgroup } from '../h-helper'
 import useLayoutObserver from '../layout-observer'
 import { removePopper } from '../util'
 import { TABLE_INJECTION_KEY } from '../tokens'
@@ -32,12 +30,13 @@ export default defineComponent({
 
     watch(props.store.states.hoverRow, (newVal: any, oldVal: any) => {
       if (!props.store.states.isComplex.value || !isClient) return
-      let raf = window.requestAnimationFrame
-      if (!raf) {
-        raf = (fn) => window.setTimeout(fn, 16)
-      }
-      raf(() => {
-        const rows = instance?.vnode.el?.querySelectorAll(`.${ns.e('row')}`)
+
+      rAF(() => {
+        // just get first level children; fix #9723
+        const el = instance?.vnode.el as HTMLElement
+        const rows = Array.from(el?.children || []).filter((e) =>
+          e?.classList.contains(`${ns.e('row')}`)
+        )
         const oldRow = rows[oldVal]
         const newRow = rows[newVal]
         if (oldRow) {
@@ -52,9 +51,6 @@ export default defineComponent({
     onUnmounted(() => {
       removePopper?.()
     })
-    onUpdated(() => {
-      removePopper?.()
-    })
 
     return {
       ns,
@@ -66,25 +62,17 @@ export default defineComponent({
     }
   },
   render() {
-    const { ns, wrappedRowRender, store } = this
+    const { wrappedRowRender, store } = this
     const data = store.states.data.value || []
-    const columns = store.states.columns.value
-    return h(
-      'table',
-      {
-        class: ns.e('body'),
-        cellspacing: '0',
-        cellpadding: '0',
-        border: '0',
-      },
-      [
-        hColgroup(columns),
-        h('tbody', {}, [
-          data.reduce((acc: VNode[], row) => {
-            return acc.concat(wrappedRowRender(row, acc.length))
-          }, []),
-        ]),
-      ]
-    )
+    // Why do we need tabIndex: -1 ?
+    // If you set the tabindex attribute on an element ,
+    // then its child content cannot be scrolled with the arrow keys,
+    // unless you set tabindex on the content too
+    // See https://github.com/facebook/react/issues/25462#issuecomment-1274775248 or https://developer.mozilla.org/zh-CN/docs/Web/HTML/Global_attributes/tabindex
+    return h('tbody', { tabIndex: -1 }, [
+      data.reduce((acc: VNode[], row) => {
+        return acc.concat(wrappedRowRender(row, acc.length))
+      }, []),
+    ])
   },
 })

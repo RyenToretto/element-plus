@@ -1,12 +1,7 @@
 <template>
   <li
     v-show="visible"
-    class="el-select-dropdown__item"
-    :class="{
-      selected: itemSelected,
-      'is-disabled': isDisabled,
-      hover: hover,
-    }"
+    :class="containerKls"
     @mouseenter="hoverItem"
     @click.stop="selectOptionClick"
   >
@@ -17,13 +12,18 @@
 </template>
 
 <script lang="ts">
+// @ts-nocheck
 import {
-  toRefs,
+  computed,
   defineComponent,
   getCurrentInstance,
+  nextTick,
   onBeforeUnmount,
   reactive,
+  toRefs,
+  unref,
 } from 'vue'
+import { useNamespace } from '@element-plus/hooks'
 import { useOption } from './useOption'
 import type { SelectOptionProxy } from './token'
 
@@ -32,19 +32,36 @@ export default defineComponent({
   componentName: 'ElOption',
 
   props: {
+    /**
+     * @description value of option
+     */
     value: {
       required: true,
       type: [String, Number, Boolean, Object],
     },
+    /**
+     * @description label of option, same as `value` if omitted
+     */
     label: [String, Number],
     created: Boolean,
-    disabled: {
-      type: Boolean,
-      default: false,
-    },
+    /**
+     * @description whether option is disabled
+     */
+    disabled: Boolean,
   },
 
   setup(props) {
+    const ns = useNamespace('select')
+
+    const containerKls = computed(() => [
+      ns.be('dropdown', 'item'),
+      ns.is('disabled', unref(isDisabled)),
+      {
+        selected: unref(itemSelected),
+        hover: unref(hover),
+      },
+    ])
+
     const states = reactive({
       index: -1,
       groupDisabled: false,
@@ -59,30 +76,34 @@ export default defineComponent({
     const { visible, hover } = toRefs(states)
 
     const vm = getCurrentInstance().proxy
-    const key = (vm as unknown as SelectOptionProxy).value
+
     select.onOptionCreate(vm as unknown as SelectOptionProxy)
 
     onBeforeUnmount(() => {
+      const key = (vm as unknown as SelectOptionProxy).value
       const { selected } = select
       const selectedOptions = select.props.multiple ? selected : [selected]
-      const doesExist = select.cachedOptions.has(key)
       const doesSelected = selectedOptions.some((item) => {
         return item.value === (vm as unknown as SelectOptionProxy).value
       })
       // if option is not selected, remove it from cache
-      if (doesExist && !doesSelected) {
-        select.cachedOptions.delete(key)
-      }
-      select.onOptionDestroy(key)
+      nextTick(() => {
+        if (select.cachedOptions.get(key) === vm && !doesSelected) {
+          select.cachedOptions.delete(key)
+        }
+      })
+      select.onOptionDestroy(key, vm)
     })
 
     function selectOptionClick() {
       if (props.disabled !== true && states.groupDisabled !== true) {
-        select.handleOptionSelect(vm, true)
+        select.handleOptionSelect(vm)
       }
     }
 
     return {
+      ns,
+      containerKls,
       currentLabel,
       itemSelected,
       isDisabled,

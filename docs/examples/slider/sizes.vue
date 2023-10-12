@@ -1,7 +1,7 @@
 <template>
-  <el-slider v-model="value" show-input size="large"></el-slider>
-  <el-slider v-model="value" show-input></el-slider>
-  <el-slider v-model="value" show-input size="small"></el-slider>
+  <el-slider v-model="value" show-input size="large" />
+  <el-slider v-model="value" show-input />
+  <el-slider v-model="value" show-input size="small" />
 </template>
 
 <script lang="ts" setup>
@@ -17,5 +17,15 @@ const value = ref(0)
 
 .el-slider:first-child {
   margin-top: 0;
+}
+</style>
+<style scoped>
+.slider-demo-block {
+  display: flex;
+  align-items: center;
+}
+.slider-demo-block .el-slider {
+  margin-top: 0;
+  margin-left: 12px;
 }
 </style>

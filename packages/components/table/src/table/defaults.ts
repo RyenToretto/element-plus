@@ -1,23 +1,29 @@
+// @ts-nocheck
+import { useSizeProp } from '@element-plus/hooks'
 import type {
-  ComponentInternalInstance,
   CSSProperties,
+  ComponentInternalInstance,
+  PropType,
   Ref,
   VNode,
-  PropType,
 } from 'vue'
-import type { Nullable } from '@element-plus/utils/types'
+import type { ComponentSize } from '@element-plus/constants'
+import type { Nullable } from '@element-plus/utils'
 import type { Store } from '../store'
 import type { TableColumnCtx } from '../table-column/defaults'
 import type TableLayout from '../table-layout'
+import type { TableOverflowTooltipOptions } from '../util'
 
 export type DefaultRow = any
 
 interface TableRefs {
+  tableWrapper: HTMLElement
   headerWrapper: HTMLElement
   footerWrapper: HTMLElement
   fixedBodyWrapper: HTMLElement
   rightFixedBodyWrapper: HTMLElement
   bodyWrapper: HTMLElement
+  appendWrapper: HTMLElement
   [key: string]: any
 }
 
@@ -37,12 +43,17 @@ type HoverState<T> = Nullable<{
   row: T
 }>
 
-type RIS<T> = { row: T; $index: number; store: Store<T> }
+type RIS<T> = { row: T; $index: number; store: Store<T>; expanded: boolean }
 
-type RenderExpanded<T> = ({ row, $index, store }: RIS<T>) => VNode
+type RenderExpanded<T> = ({
+  row,
+  $index,
+  store,
+  expanded: boolean,
+}: RIS<T>) => VNode
 
 type SummaryMethod<T> = (data: {
-  columns: TableColumnCtx<T>
+  columns: TableColumnCtx<T>[]
   data: T[]
 }) => string[]
 
@@ -77,10 +88,10 @@ type CellStyle<T> =
       column: TableColumnCtx<T>
       columnIndex: number
     }) => CSSProperties)
-
+type Layout = 'fixed' | 'auto'
 interface TableProps<T> {
   data: T[]
-  size?: string
+  size?: ComponentSize
   width?: string | number
   height?: string | number
   maxHeight?: string | number
@@ -108,6 +119,7 @@ interface TableProps<T> {
   defaultExpandAll?: boolean
   defaultSort?: Sort
   tooltipEffect?: string
+  tooltipOptions?: TableOverflowTooltipOptions
   spanMethod?: (data: {
     row: T
     rowIndex: number
@@ -119,6 +131,7 @@ interface TableProps<T> {
         rowspan: number
         colspan: number
       }
+    | undefined
   selectOnIndeterminate?: boolean
   indent?: number
   treeProps?: {
@@ -129,6 +142,10 @@ interface TableProps<T> {
   load?: (row: T, treeNode: TreeNode, resolve: (data: T[]) => void) => void
   className?: string
   style?: CSSProperties
+  tableLayout?: Layout
+  scrollbarAlwaysOn?: boolean
+  flexible?: boolean
+  showOverflowTooltip?: boolean | TableOverflowTooltipOptions
 }
 
 interface Sort {
@@ -160,16 +177,15 @@ interface RenderRowData<T> {
   row: T
   $index: number
   treeNode?: TreeNode
+  expanded: boolean
 }
 
 export default {
   data: {
     type: Array as PropType<DefaultRow[]>,
-    default: () => {
-      return []
-    },
+    default: () => [],
   },
-  size: String,
+  size: useSizeProp,
   width: [String, Number],
   height: [String, Number],
   maxHeight: [String, Number],
@@ -216,6 +232,7 @@ export default {
   defaultExpandAll: Boolean,
   defaultSort: Object as PropType<TableProps<DefaultRow>['defaultSort']>,
   tooltipEffect: String,
+  tooltipOptions: Object as PropType<TableProps<DefaultRow>['tooltipOptions']>,
   spanMethod: Function as PropType<TableProps<DefaultRow>['spanMethod']>,
   selectOnIndeterminate: {
     type: Boolean,
@@ -244,6 +261,18 @@ export default {
     type: String,
     default: '',
   },
+  tableLayout: {
+    type: String as PropType<Layout>,
+    default: 'fixed',
+  },
+  scrollbarAlwaysOn: {
+    type: Boolean,
+    default: false,
+  },
+  flexible: Boolean,
+  showOverflowTooltip: [Boolean, Object] as PropType<
+    TableProps<DefaultRow>['showOverflowTooltip']
+  >,
 }
 export type {
   SummaryMethod,
@@ -252,8 +281,11 @@ export type {
   TableRefs,
   ColumnCls,
   ColumnStyle,
+  CellCls,
+  CellStyle,
   TreeNode,
   RenderRowData,
   Sort,
   Filter,
+  TableColumnCtx,
 }

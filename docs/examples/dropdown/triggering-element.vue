@@ -33,6 +33,18 @@
 import { ArrowDown } from '@element-plus/icons-vue'
 
 const handleClick = () => {
+  // eslint-disable-next-line no-alert
   alert('button click')
 }
 </script>
+<style scoped>
+.example-showcase .el-dropdown + .el-dropdown {
+  margin-left: 15px;
+}
+.example-showcase .el-dropdown-link {
+  cursor: pointer;
+  color: var(--el-color-primary);
+  display: flex;
+  align-items: center;
+}
+</style>

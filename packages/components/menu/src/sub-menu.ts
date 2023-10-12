@@ -1,31 +1,36 @@
 import {
-  defineComponent,
-  computed,
-  ref,
-  provide,
-  inject,
-  getCurrentInstance,
-  watch,
-  onMounted,
-  onBeforeUnmount,
-  withDirectives,
   Fragment,
-  vShow,
+  computed,
+  defineComponent,
+  getCurrentInstance,
   h,
+  inject,
+  onBeforeUnmount,
+  onMounted,
+  provide,
   reactive,
+  ref,
+  vShow,
+  watch,
+  withDirectives,
 } from 'vue'
 import { useTimeoutFn } from '@vueuse/core'
 import ElCollapseTransition from '@element-plus/components/collapse-transition'
 import ElTooltip from '@element-plus/components/tooltip'
-import { buildProps } from '@element-plus/utils/props'
-import { throwError } from '@element-plus/utils/error'
+import {
+  buildProps,
+  iconPropType,
+  isString,
+  throwError,
+} from '@element-plus/utils'
+import { useDeprecated, useNamespace } from '@element-plus/hooks'
 import { ArrowDown, ArrowRight } from '@element-plus/icons-vue'
 import { ElIcon } from '@element-plus/components/icon'
 import useMenu from './use-menu'
 import { useMenuCssVar } from './use-menu-css-var'
 
 import type { Placement } from '@element-plus/components/popper'
-import type { ExtractPropTypes, VNodeArrayChildren, CSSProperties } from 'vue'
+import type { CSSProperties, ExtractPropTypes, VNodeArrayChildren } from 'vue'
 import type { MenuProvider, SubMenuProvider } from './types'
 
 export const subMenuProps = buildProps({
@@ -47,6 +52,26 @@ export const subMenuProps = buildProps({
     type: Boolean,
     default: undefined,
   },
+  teleported: {
+    type: Boolean,
+    default: undefined,
+  },
+  popperOffset: {
+    type: Number,
+    default: 6,
+  },
+  expandCloseIcon: {
+    type: iconPropType,
+  },
+  expandOpenIcon: {
+    type: iconPropType,
+  },
+  collapseCloseIcon: {
+    type: iconPropType,
+  },
+  collapseOpenIcon: {
+    type: iconPropType,
+  },
 } as const)
 export type SubMenuProps = ExtractPropTypes<typeof subMenuProps>
 
@@ -56,11 +81,24 @@ export default defineComponent({
   props: subMenuProps,
 
   setup(props, { slots, expose }) {
+    useDeprecated(
+      {
+        from: 'popper-append-to-body',
+        replacement: 'teleported',
+        scope: COMPONENT_NAME,
+        version: '2.3.0',
+        ref: 'https://element-plus.org/en-US/component/menu.html#submenu-attributes',
+      },
+      computed(() => props.popperAppendToBody !== undefined)
+    )
+
     const instance = getCurrentInstance()!
-    const { paddingStyle, indexPath, parentMenu } = useMenu(
+    const { indexPath, parentMenu } = useMenu(
       instance,
       computed(() => props.index)
     )
+    const nsMenu = useNamespace('menu')
+    const nsSubMenu = useNamespace('sub-menu')
 
     // inject
     const rootMenu = inject<MenuProvider>('rootMenu')
@@ -86,29 +124,28 @@ export default defineComponent({
     const subMenuTitleIcon = computed(() => {
       return (mode.value === 'horizontal' && isFirstLevel.value) ||
         (mode.value === 'vertical' && !rootMenu.props.collapse)
-        ? ArrowDown
+        ? props.expandCloseIcon && props.expandOpenIcon
+          ? opened.value
+            ? props.expandOpenIcon
+            : props.expandCloseIcon
+          : ArrowDown
+        : props.collapseCloseIcon && props.collapseOpenIcon
+        ? opened.value
+          ? props.collapseOpenIcon
+          : props.collapseCloseIcon
         : ArrowRight
     })
     const isFirstLevel = computed(() => {
-      let isFirstLevel = true
-      let parent = instance.parent
-      while (parent && parent.type.name !== 'ElMenu') {
-        if (['ElSubMenu', 'ElMenuItemGroup'].includes(parent.type.name!)) {
-          isFirstLevel = false
-          break
-        } else {
-          parent = parent.parent
-        }
-      }
-      return isFirstLevel
+      return subMenu.level === 0
     })
     const appendToBody = computed(() => {
-      return props.popperAppendToBody === undefined
-        ? isFirstLevel.value
-        : Boolean(props.popperAppendToBody)
+      const value = props.teleported ?? props.popperAppendToBody
+      return value === undefined ? isFirstLevel.value : value
     })
     const menuTransitionName = computed(() =>
-      rootMenu.props.collapse ? 'el-zoom-in-left' : 'el-zoom-in-top'
+      rootMenu.props.collapse
+        ? `${nsMenu.namespace.value}-zoom-in-left`
+        : `${nsMenu.namespace.value}-zoom-in-top`
     )
     const fallbackPlacements = computed<Placement[]>(() =>
       mode.value === 'horizontal' && isFirstLevel.value
@@ -122,6 +159,8 @@ export default defineComponent({
           ]
         : [
             'right-start',
+            'right',
+            'right-end',
             'left-start',
             'bottom-start',
             'bottom-end',
@@ -158,6 +197,7 @@ export default defineComponent({
       active,
     })
 
+    const ulStyle = useMenuCssVar(rootMenu.props, subMenu.level + 1)
     const titleStyle = computed<CSSProperties>(() => {
       if (mode.value !== 'horizontal') {
         return {
@@ -204,7 +244,7 @@ export default defineComponent({
       event: MouseEvent | FocusEvent,
       showTimeout = props.showTimeout
     ) => {
-      if (event.type === 'focus' && !event.relatedTarget) {
+      if (event.type === 'focus') {
         return
       }
       if (
@@ -269,6 +309,7 @@ export default defineComponent({
         removeSubMenu,
         handleMouseleave,
         mouseInChild,
+        level: subMenu.level + 1,
       })
     }
 
@@ -294,13 +335,26 @@ export default defineComponent({
         h(
           ElIcon,
           {
-            class: ['el-sub-menu__icon-arrow'],
+            class: nsSubMenu.e('icon-arrow'),
+            style: {
+              transform: opened.value
+                ? (props.expandCloseIcon && props.expandOpenIcon) ||
+                  (props.collapseCloseIcon &&
+                    props.collapseOpenIcon &&
+                    rootMenu.props.collapse)
+                  ? 'none'
+                  : 'rotateZ(180deg)'
+                : 'none',
+            },
           },
-          { default: () => h(subMenuTitleIcon.value) }
+          {
+            default: () =>
+              isString(subMenuTitleIcon.value)
+                ? h(instance.appContext.components[subMenuTitleIcon.value])
+                : h(subMenuTitleIcon.value),
+          }
         ),
       ]
-
-      const ulStyle = useMenuCssVar(rootMenu.props)
 
       // this render function is only used for bypass `Vue`'s compiler caused patching issue.
       // temporarily mark ElPopper as any due to type inconsistency.
@@ -313,7 +367,7 @@ export default defineComponent({
               visible: opened.value,
               effect: 'light',
               pure: true,
-              offset: 6,
+              offset: props.popperOffset,
               showArrow: false,
               persistent: true,
               popperClass: props.popperClass,
@@ -328,7 +382,11 @@ export default defineComponent({
                 h(
                   'div',
                   {
-                    class: [`el-menu--${mode.value}`, props.popperClass],
+                    class: [
+                      nsMenu.m(mode.value),
+                      nsMenu.m('popup-container'),
+                      props.popperClass,
+                    ],
                     onMouseenter: (evt: MouseEvent) =>
                       handleMouseenter(evt, 100),
                     onMouseleave: () => handleMouseleave(true),
@@ -339,8 +397,9 @@ export default defineComponent({
                       'ul',
                       {
                         class: [
-                          'el-menu el-menu--popup',
-                          `el-menu--popup-${currentPlacement.value}`,
+                          nsMenu.b(),
+                          nsMenu.m('popup'),
+                          nsMenu.m(`popup-${currentPlacement.value}`),
                         ],
                         style: ulStyle.value,
                       },
@@ -352,9 +411,8 @@ export default defineComponent({
                 h(
                   'div',
                   {
-                    class: 'el-sub-menu__title',
+                    class: nsSubMenu.e('title'),
                     style: [
-                      paddingStyle.value,
                       titleStyle.value,
                       { backgroundColor: backgroundColor.value },
                     ],
@@ -368,9 +426,8 @@ export default defineComponent({
             h(
               'div',
               {
-                class: 'el-sub-menu__title',
+                class: nsSubMenu.e('title'),
                 style: [
-                  paddingStyle.value,
                   titleStyle.value,
                   { backgroundColor: backgroundColor.value },
                 ],
@@ -389,7 +446,7 @@ export default defineComponent({
                       'ul',
                       {
                         role: 'menu',
-                        class: 'el-menu el-menu--inline',
+                        class: [nsMenu.b(), nsMenu.m('inline')],
                         style: ulStyle.value,
                       },
                       [slots.default?.()]
@@ -404,12 +461,10 @@ export default defineComponent({
         'li',
         {
           class: [
-            'el-sub-menu',
-            {
-              'is-active': active.value,
-              'is-opened': opened.value,
-              'is-disabled': props.disabled,
-            },
+            nsSubMenu.b(),
+            nsSubMenu.is('active', active.value),
+            nsSubMenu.is('opened', opened.value),
+            nsSubMenu.is('disabled', props.disabled),
           ],
           role: 'menuitem',
           ariaHaspopup: true,

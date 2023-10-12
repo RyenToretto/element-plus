@@ -9,7 +9,8 @@
     <el-table-column fixed="right" label="Operations" width="120">
       <template #default="scope">
         <el-button
-          type="text"
+          link
+          type="primary"
           size="small"
           @click.prevent="deleteRow(scope.$index)"
         >
@@ -27,7 +28,7 @@
 import { ref } from 'vue'
 import dayjs from 'dayjs'
 
-let now = dayjs('2016-05-03')
+const now = new Date()
 
 const tableData = ref([
   {
@@ -61,9 +62,9 @@ const deleteRow = (index: number) => {
 }
 
 const onAddItem = () => {
-  now = now.add(1, 'day')
+  now.setDate(now.getDate() + 1)
   tableData.value.push({
-    date: now.format('YYYY-MM-DD'),
+    date: dayjs(now).format('YYYY-MM-DD'),
     name: 'Tom',
     state: 'California',
     city: 'Los Angeles',
