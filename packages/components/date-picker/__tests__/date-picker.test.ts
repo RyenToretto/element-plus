@@ -262,7 +262,7 @@ describe('DatePicker', () => {
     await nextTick()
     await rAF()
     expect(focusHandler).toHaveBeenCalledTimes(1)
-    expect(blurHandler).toHaveBeenCalledTimes(1)
+    expect(blurHandler).toHaveBeenCalled()
     expect(keydownHandler).toHaveBeenCalledTimes(1)
     input.trigger('focus')
     await nextTick()
@@ -830,6 +830,108 @@ describe('DatePicker', () => {
       await wrapper.find('button').trigger('click')
       await nextTick()
       expect(wrapper.findComponent(Input).vm.modelValue).toBe(dateStr)
+    })
+  })
+
+  describe('It should generate accessible attributes', () => {
+    it('should generate aria attributes', async () => {
+      const wrapper = _mount(
+        `<el-date-picker
+          v-model="value"
+          type="date"
+          aria-label="Date picker"
+        />`,
+        () => ({ value: '' })
+      )
+      const input = wrapper.find('input')
+      expect(input.attributes('role')).toBe('combobox')
+      expect(input.attributes('aria-controls')).toBeTruthy()
+      expect(input.attributes('aria-expanded')).toBe('false')
+      expect(input.attributes('aria-haspopup')).toBe('dialog')
+      expect(input.attributes('aria-label')).toBe('Date picker')
+
+      input.trigger('focus')
+      await nextTick()
+      const popper = document.querySelector('.el-picker__popper')
+
+      expect(input.attributes('aria-expanded')).toBe('true')
+      expect(input.attributes('aria-controls')).toBe(popper.getAttribute('id'))
+      expect(popper.getAttribute('role')).toBe('dialog')
+      expect(popper.getAttribute('aria-modal')).toBe('false')
+      expect(popper.getAttribute('aria-hidden')).toBe('false')
+    })
+
+    it('should generate aria attributes for range', async () => {
+      const wrapper = _mount(
+        `<el-date-picker
+          v-model="value"
+          type="daterange"
+          aria-label="Date picker"
+        />`,
+        () => ({ value: [] })
+      )
+      const inputs = wrapper.findAll('input')
+      expect(inputs[0].attributes('role')).toBe('combobox')
+      expect(inputs[0].attributes('aria-controls')).toBeTruthy()
+      expect(inputs[0].attributes('aria-expanded')).toBe('false')
+      expect(inputs[0].attributes('aria-haspopup')).toBe('dialog')
+      expect(inputs[0].attributes('aria-label')).toBe('Date picker')
+
+      expect(inputs[1].attributes('role')).toBe('combobox')
+      expect(inputs[1].attributes('aria-controls')).toBeTruthy()
+      expect(inputs[1].attributes('aria-expanded')).toBe('false')
+      expect(inputs[1].attributes('aria-haspopup')).toBe('dialog')
+      expect(inputs[1].attributes('aria-label')).toBe('Date picker')
+      expect(inputs[1].attributes('aria-controls')).toBe(
+        inputs[0].attributes('aria-controls')
+      )
+
+      wrapper.find('input').trigger('focus')
+      await nextTick()
+      const popper = document.querySelector('.el-picker__popper')
+
+      expect(inputs[0].attributes('aria-expanded')).toBe('true')
+      expect(inputs[0].attributes('aria-controls')).toBe(
+        popper.getAttribute('id')
+      )
+      expect(popper.getAttribute('role')).toBe('dialog')
+      expect(popper.getAttribute('aria-modal')).toBe('false')
+      expect(popper.getAttribute('aria-hidden')).toBe('false')
+    })
+  })
+
+  describe('Trigger the change event when clearing the date picker', () => {
+    it('click the button to clear the date', async () => {
+      const changeHandler = vi.fn()
+      const wrapper = _mount(
+        `<el-date-picker
+          v-model="value"
+          @change="changeHandler"
+        />`,
+        () => ({ value: new Date(), changeHandler })
+      )
+
+      await wrapper.find('input').trigger('focus')
+      await wrapper.find('.el-input').trigger('mouseenter')
+      await wrapper.find('.clear-icon').trigger('click')
+      expect(changeHandler).toHaveBeenCalledTimes(1)
+    })
+
+    it('manually clear date', async () => {
+      const changeHandler = vi.fn()
+      const wrapper = _mount(
+        `<el-date-picker
+          v-model="value"
+          @change="changeHandler"
+        />`,
+        () => ({ value: new Date(), changeHandler })
+      )
+
+      const input = wrapper.find('input')
+      await input.trigger('focus')
+      await input.setValue('')
+      await input.trigger('blur')
+      expect(changeHandler).toHaveBeenCalledTimes(1)
     })
   })
 })

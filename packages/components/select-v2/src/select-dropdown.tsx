@@ -226,30 +226,27 @@ export default defineComponent({
 
     const onKeydown = (e: KeyboardEvent) => {
       const { code } = e
-      const { tab, esc, down, up, enter } = EVENT_CODE
-      if (code !== tab) {
+      const { tab, esc, down, up, enter, numpadEnter } = EVENT_CODE
+      if ([esc, down, up, enter, numpadEnter].includes(code)) {
         e.preventDefault()
         e.stopPropagation()
       }
 
       switch (code) {
         case tab:
-        case esc: {
+        case esc:
           onEscOrTab()
           break
-        }
-        case down: {
+        case down:
           onForward()
           break
-        }
-        case up: {
+        case up:
           onBackward()
           break
-        }
-        case enter: {
+        case enter:
+        case numpadEnter:
           onKeyboardSelect()
           break
-        }
       }
     }
 
