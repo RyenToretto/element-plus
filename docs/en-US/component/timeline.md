@@ -17,6 +17,22 @@ timeline/basic
 
 :::
 
+## Mode ^(2.13.1)
+
+Use `mode` to control the relative position of timeline and content.
+
+:::tip
+
+After ^(2.13.1), `el-timeline` explicitly sets padding styles. If you have overridden padding styles of `ul` tag in your project, please check to ensure the layout is correct.
+
+:::
+
+:::demo
+
+timeline/mode
+
+:::
+
 ## Custom node
 
 Size, color, and icons can be customized in node.
@@ -47,9 +63,26 @@ timeline/center
 
 :::
 
+## Reverse ^(2.11.9)
+
+Use the reverse property to control the order of the nodes.
+
+:::demo
+
+timeline/reverse
+
+:::
+
 ## Timeline API
 
-### Slots
+### Timeline Attributes
+
+| Name              | Description                               | Type                                                            | Default |
+| ----------------- | ----------------------------------------- | --------------------------------------------------------------- | ------- |
+| reverse ^(2.11.9) | whether reverse order                     | ^[boolean]                                                      | false   |
+| mode ^(2.13.1)    | relative position of timeline and content | ^[enum]`'start' \| 'alternate' \| 'alternate-reverse' \| 'end'` | start   |
+
+### Timeline Slots
 
 | Name    | Description                            | Subtags       |
 | ------- | -------------------------------------- | ------------- |
@@ -57,7 +90,7 @@ timeline/center
 
 ## Timeline-Item API
 
-### Attributes
+### Timeline-Item Attributes
 
 | Name           | Description                 | Type                                                               | Default |
 | -------------- | --------------------------- | ------------------------------------------------------------------ | ------- |
@@ -66,12 +99,12 @@ timeline/center
 | center         | whether vertically centered | ^[boolean]                                                         | false   |
 | placement      | position of timestamp       | ^[enum]`'top' \| 'bottom'`                                         | bottom  |
 | type           | node type                   | ^[enum]`'primary' \| 'success' \| 'warning' \| 'danger' \| 'info'` | ''      |
-| color          | background color of node    | ^[enum]`'hsl' \| 'hsv' \| 'hex' \| 'rgb'`                          | ''      |
+| color          | background color of node    | ^[string]                                                          | ''      |
 | size           | node size                   | ^[enum]`'normal' \| 'large'`                                       | normal  |
 | icon           | icon component              | ^[string] / ^[Component]                                           | —       |
 | hollow         | icon is hollow              | ^[boolean]                                                         | false   |
 
-### Slots
+### Timeline-Item Slots
 
 | Name    | Description                                 |
 | ------- | ------------------------------------------- |
